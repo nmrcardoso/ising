@@ -152,7 +152,7 @@ namespace ising {
     static bool init = false;
 
     if (!init) {
-      char *enable_managed_memory = getenv("U1_ENABLE_MANAGED_MEMORY");
+      char *enable_managed_memory = getenv("ISING_ENABLE_MANAGED_MEMORY");
       if (enable_managed_memory && strcmp(enable_managed_memory, "1") == 0) {
         printfIsing("Warning: Using managed memory for CUDA allocations");
         managed = true;
@@ -179,7 +179,7 @@ namespace ising {
 
     if (!init) {
       if (use_managed_memory()) {
-        char *enable_managed_prefetch = getenv("U1_ENABLE_MANAGED_PREFETCH");
+        char *enable_managed_prefetch = getenv("ISING_ENABLE_MANAGED_PREFETCH");
         if (enable_managed_prefetch && strcmp(enable_managed_prefetch, "1") == 0) {
           printfIsing("Warning: Enabling prefetch support for managed memory");
           prefetch = true;
