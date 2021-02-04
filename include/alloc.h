@@ -40,6 +40,11 @@ namespace ising {
   */
   bool use_managed_memory();
 
+  /**
+     @return is prefetching support enabled (assumes managed memory is enabled)
+  */
+  bool is_prefetch_enabled();
+
   /*
    * The following functions should not be called directly.  Use the
    * macros below instead.

@@ -95,7 +95,7 @@ namespace ising {
 
   static void print_alloc(AllocType type)
   {
-    const char *type_str[] = {"Device", "Device Pinned", "Host  ", "Pinned", "Mapped", "Managed"};
+    const char *type_str[] = {"Device", "Device Pinned", "Host", "Pinned", "Mapped", "Managed"};
     std::map<void *, MemAlloc>::iterator entry;
 
     for (entry = alloc[type].begin(); entry != alloc[type].end(); entry++) {
@@ -528,8 +528,8 @@ namespace ising {
   {
   	printfIsing("----------------------------------------------------------\n");
     printfIsing("Device memory used = %.1f MB\n", max_total_bytes[DEVICE_PTR] / (double)(1<<20));
-    printfIsing("Pinned device memory used = %.1f MB\n", max_total_bytes[DEVICE_PINNED_PTR] / (double)(1<<20));
     printfIsing("Managed memory used = %.1f MB\n", max_total_bytes[MANAGED_PTR] / (double)(1 << 20));
+    printfIsing("Pinned device memory used = %.1f MB\n", max_total_bytes[DEVICE_PINNED_PTR] / (double)(1<<20));
     printfIsing("Page-locked host memory used = %.1f MB\n", max_total_pinned_bytes / (double)(1<<20));
     printfIsing("Total host memory used >= %.1f MB\n", max_total_host_bytes / (double)(1<<20));
   	printfIsing("----------------------------------------------------------\n");
@@ -538,11 +538,12 @@ namespace ising {
 
   void assertAllMemFree()
   {
-    if (!alloc[DEVICE_PTR].empty() || !alloc[DEVICE_PINNED_PTR].empty() || !alloc[HOST_PTR].empty() || !alloc[PINNED_PTR].empty() || !alloc[MAPPED_PTR].empty()) {
+    if (!alloc[DEVICE_PTR].empty() || !alloc[DEVICE_PINNED_PTR].empty() || !alloc[HOST_PTR].empty() || !alloc[PINNED_PTR].empty() || !alloc[MAPPED_PTR].empty() || !alloc[MANAGED_PTR].empty()) {
       printfIsing("The following internal memory allocations were not freed.");
       printfIsing("\n");
       print_alloc_header();
       print_alloc(DEVICE_PTR);
+      print_alloc(MANAGED_PTR);
       print_alloc(DEVICE_PINNED_PTR);
       print_alloc(HOST_PTR);
       print_alloc(PINNED_PTR);
@@ -601,7 +602,7 @@ namespace ising {
 
 
 static void FreeMemoryType(AllocType type){
-	const char *type_str[] = {"Device", "Device Pinned", "Host  ", "Pinned", "Mapped"};
+	const char *type_str[] = {"Device", "Device Pinned", "Host", "Pinned", "Mapped", "Managed"};
 	std::map<void *, MemAlloc>::iterator entry;
 	std::map<void *, MemAlloc>::iterator next_entry;
 
@@ -612,6 +613,7 @@ static void FreeMemoryType(AllocType type){
 		a.func.c_str(), a.file.c_str(), a.line);
 		next_entry++;
 		if(type == DEVICE_PTR) dev_free_(a.func.c_str(), a.file.c_str(), a.line, ptr);
+		if(type == MANAGED_PTR) managed_free_(a.func.c_str(), a.file.c_str(), a.line, ptr);
 		else if(type == DEVICE_PINNED_PTR )	dev_pinned_free_(a.func.c_str(), a.file.c_str(), a.line, ptr);
 		else host_free_(a.func.c_str(), a.file.c_str(), a.line, ptr); 
 	}
@@ -624,6 +626,12 @@ void FreeAllMemory(){
       printfIsing("Releasing DEVICE internal memory allocations not freed by user:\n");
       print_alloc_header();
       FreeMemoryType(DEVICE_PTR);
+      printfIsing("\n");
+    }
+    if (!alloc[MANAGED_PTR].empty() ) {
+      printfIsing("Releasing MANAGED internal memory allocations not freed by user:\n");
+      print_alloc_header();
+      FreeMemoryType(MANAGED_PTR);
       printfIsing("\n");
     }
     if (!alloc[DEVICE_PINNED_PTR].empty() ) {
@@ -650,16 +658,6 @@ void FreeAllMemory(){
       FreeMemoryType(HOST_PTR);
       printfIsing("\n");
     }
-    /*if (!alloc[DEVICE_PTR].empty() || !alloc[HOST_PTR].empty() || !alloc[PINNED].empty() || !alloc[MAPPED].empty() ) {
-      printfIsing("Releasing internal memory allocations not freed by user:\n");
-      print_alloc_header();
-      FreeAllDeviceMemory();
-      FreeAllHostMemory();
-      FreeAllHostMemory(HOST_PTR);
-      FreeAllHostMemory(PINNED);
-      FreeAllHostMemory(MAPPED);
-      printfIsing("\n");
-    }*/
     assertAllMemFree();
   }
 
