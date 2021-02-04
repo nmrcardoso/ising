@@ -98,30 +98,36 @@ InlineHostDevice int Neigbours(const int *lat, const int id, const int parity){
 }
 
 
+InlineHostDevice void UpdateSite(int* lat, int id, int parity, double rand){
+
+	int spin = lat[id + parity * HalfVolume()];
+	int spinsum = Neigbours(lat, id, parity);
+	double inter = -Jconst() * double(spin * spinsum);
+
+	if(1){
+		if( inter > 0 ) spin = -spin;
+		else{
+			double boltz = exp(2.0 * inter * Beta());
+			if( rand < boltz ) spin = -spin;
+		}
+	}
+	else{    
+		double boltz = exp(2.0 * inter * Beta());
+		if( boltz > rand ) spin = -spin;
+	}
+	lat[id + parity * HalfVolume()] = spin;
+}
+
+
 
 __global__ void kernel_metropolis(int *lat, int parity, cuRNGState *rng_state){
     uint id = threadIdx.x + blockDim.x * blockIdx.x;
     if( id >= HalfVolume() ) return ;
     cuRNGState localState = rng_state[ id ];
-	double b = Random<double>(localState);
+	double rand = Random<double>(localState);
     rng_state[ id ] = localState;
     
-    int spin = lat[id + parity * HalfVolume()];
-	int spinsum = Neigbours(lat, id, parity);
-	double inter = -Jconst() * double(spin * spinsum);
-
-	if(0){
-		if( inter > 0 ) spin = -spin;
-		else{
-			double boltz = exp(2.0 * inter * Beta());
-			if( b < boltz ) spin = -spin;
-		}
-    }
-    else{    
-		double boltz = exp(2.0 * inter * Beta());
-		if( boltz > b ) spin = -spin;
-	}
-    lat[id + parity * HalfVolume()] = spin;
+    UpdateSite(lat, id, parity, rand);
 }
 
 	
@@ -220,23 +226,8 @@ void UpdateLattice(Array<int> *lattice, CudaRNG *rng_state, int metrop){
 		for(int parity = 0; parity < 2; ++parity){
 			#pragma omp parallel for
 			for(int id = 0; id < HalfVolume(); id++){
-				double b = rand01(generator[omp_get_thread_num()]);
-				int spin = lat[id + parity * HalfVolume()];
-				int spinsum = Neigbours(lat, id, parity);
-				double inter = -Jconst() * double(spin * spinsum);
-
-				if(0){
-					if( inter > 0 ) spin = -spin;
-					else{
-						double boltz = exp(2.0 * inter * Beta());
-						if( b < boltz ) spin = -spin;
-					}
-				}
-				else{    
-					double boltz = exp(2.0 * inter * Beta());
-					if( boltz > b ) spin = -spin;
-				}
-				lat[id + parity * HalfVolume()] = spin;
+				double rand = rand01(generator[omp_get_thread_num()]);
+				UpdateSite(lat, id, parity, rand);
 			}
 		}
 	}

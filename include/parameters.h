@@ -13,7 +13,7 @@
 
 namespace ising{
 
-void SetupLatticeParameters(int Nx, int Ny, int Nz, int Nt, int dirs, double beta, double jconst, int imetrop);
+void SetupLatticeParameters(int Npt, int dirs, double beta, double jconst, int imetrop);
 
 
 #if defined(XORWOW)

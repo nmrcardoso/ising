@@ -138,7 +138,7 @@ void SetupGPU_Parameters(){
 
 
 
-void SetupLatticeParameters(int Nx, int Ny, int Nz, int Nt, int dirs, double beta, double jconst, int imetrop){
+void SetupLatticeParameters(int Npt, int dirs, double beta, double jconst, int imetrop){
 	using namespace std;
 	PARAMS::DIRS = dirs; //Need to update kernels to take into account less than 4 directions
 
@@ -146,15 +146,9 @@ void SetupLatticeParameters(int Nx, int Ny, int Nz, int Nt, int dirs, double bet
 		PARAMS::Grid[i] = 1; 
 		PARAMS::Offset[i] = 0;
 	}
-	PARAMS::Grid[0] = Nx;
-	if(Dirs()==2) PARAMS::Grid[1] = Nt;
-	else if(Dirs() > 2) PARAMS::Grid[1] = Ny;
-	if(Dirs()==3) PARAMS::Grid[2] = Nt;
-	else if(Dirs() > 3) PARAMS::Grid[2] = Nz;
-	if(Dirs()==4) PARAMS::Grid[3] = Nt;
 	
-	
-	for(int i = 1; i < PARAMS::DIRS; ++i){
+	for(int i = 0; i < PARAMS::DIRS; ++i){
+		PARAMS::Grid[i] = Npt;
 		if( (Grid(i)%2) != 0 ){
 			std::cout << "Error: Number of points should be an even number..." << std::endl;
 			Finalize(1);
