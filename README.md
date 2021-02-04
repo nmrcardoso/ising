@@ -1,6 +1,7 @@
 # Ising
 
 The code supports:
+- 1D, 2D and 3D
 - CPU with OpenMP
     - implicitly run when alocationg the lattice aray with "Host"
 		- Array<int> *lattice = new Array<int>(Host, Volume()*Dirs());
