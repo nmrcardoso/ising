@@ -16,6 +16,82 @@ namespace ising{
 
 
 // From paper https://arxiv.org/abs/hep-lat/0306017
+int calculateCorTime(std::vector<double> &data){
+	using namespace std;
+	
+	int N = data.size();
+	int Wopt = 0;
+	int tmax = N / 2;
+	
+	double avg = 0.;
+	for(int i = 0; i < N; ++i) avg += data[i];
+	avg /= double(N);
+	
+	std::vector<double> GammaFbb;
+	double rho=0.;
+	double Gint = 0.;
+	double tauW = 0.;
+	double Stau = 1.5;
+	double gW = 0.;
+	bool flag = true;
+	int t = 0;
+	while( t <= tmax ) {		
+		double ga = 0.;
+		for(int i = 0; i < N-t; ++i)
+			ga += (data[i] - avg) * (data[i+t] - avg);
+		ga /= double(N-t);
+		
+		if(t == 0) rho = ga;
+		
+		GammaFbb.push_back(ga);
+		
+		if( t > 0 )
+		if(flag){
+			Gint += ga/rho;
+			if( Gint <= 0 ) tauW = 2.2204e-16; 
+			else tauW = Stau / ( log( (Gint+1) / Gint) );
+			gW = exp(-double(t)/tauW)-tauW/sqrt(double((t)*N));
+			
+			
+			if( gW < 0 ) {               // this W is taken as optimal
+			  Wopt=t; 
+			  tmax = min(tmax,2*t); 
+			  flag = false; // Gamma up to tmax
+			}
+		}		
+		t++;
+	}	 
+	if(flag){
+		cout << "WARNING: windowing condition failed up to W = " << tmax << endl;
+  		Wopt=tmax;
+		cout << "N: " << N  << "\tGint: " << Gint << "\ttauw: " << tauW << "\tgW: " << gW << "\tWopt: " << Wopt << "\ttmax: " << tmax << endl;
+	}
+	return Wopt;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// From paper https://arxiv.org/abs/hep-lat/0306017
 void calculateCorTime(int miniter, int iter, std::vector<double> &gamma, int &nsweep, bool print){
 	using namespace std;
 	//Timer a0; a0.start();

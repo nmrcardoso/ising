@@ -76,12 +76,10 @@ double standardDeviation(const vector<double> &in, int wopt){
 
 double2 susceptibility (const vector<double> &data){
     double mu = mean(data);
-    double s = 0;
     int length = data.size();
     vector<double> jack;
     for (int i = 0; i < length; ++i){
     	double tmp = (data[i] - mu)*(data[i] - mu);
-        s += tmp;
         jack.push_back(tmp);
     }
     return jackknife(jack);
@@ -115,17 +113,15 @@ int main(){
 	Start(gpuID, VERBOSE, TUNE_YES); // Important. Setup GPU id and setup tune kernels and verbosity level. See cuda_error_check.cpp/.h
 	
 	
-	
-
-	
+   
+	//Only used if: export ISING_ENABLE_MANAGED_MEMORY=1
+	use_managed_memory();
 	
 	int dirs = 2; 
 	int Npt = 32; //The number of points in each direction must be an even number!!!!!!!!!
 	double beta = 1.;
 	double aniso = 1.;
 	int imetrop = 1;
-	
-	
 	double jconst = 1.0;
 	
 	SetupLatticeParameters(Npt, dirs, beta, jconst, imetrop);
@@ -153,38 +149,26 @@ int main(){
 
 	GnuplotPipe gp;
 	
-	double step = 0.5;
+	double step = 0.1;
 	for(double temperature= 1.0; 	temperature <= 4; temperature+=step){
 	//	if(temperature> 2 && temperature < 3) step = 0.01;
 		//else step = 0.1;
 		
-		beta = 1.0/temperature;
-		//beta = 1.0/2.4;
-		
+		beta = 1.0/temperature;		
 		//Setup global parameters in Host and Device
 		SetupLatticeParameters(Npt, dirs, beta, jconst, imetrop);
 		
 		int maxIter = 100000;
 		int printiter = 10000;
-		bool hotstart = false;
+		if(temperature > 2 && temperature < 3){
+			step = 0.01;
+			maxIter = 100000;
+		}
+		else step = 0.1;
 		
 		//GPU Code
 		Timer t0;
 		t0.start();
-		
-		
-		ofstream fileout;
-		string filename1 = "Data_cpu_" + filename;
-		fileout.open(filename1, ios::out);
-		if (!fileout.is_open()) {
-			cout << "Cannot create file: " << filename1 << endl;
-			exit(1);
-		}
-		cout << "Creating file: " << filename1 << endl;
-		fileout.precision(14);
-	   
-		//Only used if: export ISING_ENABLE_MANAGED_MEMORY=1
-		use_managed_memory();
 
 		//Array array to store the phases
 		//Array<int> *lattice = new Array<int>(Device, Volume()*Dirs()); //also initialize aray to 0
@@ -193,14 +177,20 @@ int main(){
 		int seed = 1234;
 		CudaRNG *rng = new CudaRNG(seed, HalfVolume());
 		
-		InitLattice(lattice, rng, 1);
+		PARAMS::iter = 0;
+		
+		/* 
+		option -1: all spins -1
+		option 1: all spins 1
+		option 0: random 
+	    */
+		int option = 1;
+		InitLattice(lattice, rng, option);
 		double avgspin = 0;
 		double energy = 0;
 		ComputeAVG(lattice, &avgspin, &energy);
+		cout << "iter: " << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
 		
-		//cout << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
-		fileout << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
-
 		int mininter = 10000;	
 		int num = 0;
 		double avg = 0.0;
@@ -208,10 +198,6 @@ int main(){
 		vector<double> energ;
 		
 		
-
-		
-		
-		int wopt = 70;
 		for(PARAMS::iter = 1; PARAMS::iter <= maxIter; ++PARAMS::iter){
 			// metropolis algorithm 
 			UpdateLattice(lattice, rng,  PARAMS::metrop);
@@ -220,50 +206,17 @@ int main(){
 				mag.push_back(abs(avgspin));
 				energ.push_back(energy);
 			}
-			if((PARAMS::iter%printiter)==0){
+			if( (PARAMS::iter % printiter)==0 ){
 				cout << "iter: " << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
-			}
-			
-			if(0)if(PARAMS::iter >= mininter){
-				calculateCorTime(50, PARAMS::iter, mag, wopt, false);
-				//calculateCorTime1(50, PARAMS::iter, corr, nsweep);
-				if((PARAMS::iter%printiter)==0)cout << "iter: " << PARAMS::iter << '\t' << avgspin << '\t' << energy << '\t' << wopt << endl;
-				fileout << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
-				avg += abs(avgspin);
-				num++;
-			}
-			
-			if(0)if(PARAMS::iter > mininter && (PARAMS::iter%printiter)==0){		
-				gp.sendLine("reset;");
-				gp.sendLine("set terminal wxt size 900,400 enhanced font 'Verdana,10' persist");
-				gp.sendLine("unset label");
-				gp.sendLine("set grid");
-				gp.sendLine("set mxtics 5");
-				gp.sendLine("set mytics 5");
-				gp.sendLine("set style line 1 linecolor rgb 'red' pointtype 5 pointsize 1");
-				gp.sendLine("set style line 2 linecolor rgb '#0010ad' pointtype 5 pointsize 1");
-				gp.sendLine("set xlabel \"|m|\"");
-				gp.sendLine("set ylabel \"iter\"");
-				gp.sendLine("set key left bottom");
-				gp.sendLine("plot \""+filename1+"\" using 1:(abs($2)) ls 2  title \"Magnetization\"");
-				gp.sendEndOfData();
-			}
-			
-			
-				
-			if(0)if((PARAMS::iter%printiter)==0){
-				ComputeAVG(lattice, &avgspin, &energy);
-				cout << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
-				fileout << PARAMS::iter << '\t' << avgspin << '\t' << energy << endl;
-				if(PARAMS::iter > 10000){
-					avg += abs(avgspin);
-					num++;
-				}
 			}
 				
 		}
 		
+		/*int wopt = 0;
 		calculateCorTime(50, PARAMS::iter, mag, wopt, true);
+		cout << "wopt ---> " << wopt << endl;*/
+		int wopt = calculateCorTime(mag);
+		cout << "wopt ---> " << wopt << endl;
 		
 		if(wopt < 1){
 			cout << "wopt not valid...." << endl;
@@ -289,11 +242,7 @@ int main(){
 		cout << "###################################################################################" << endl;
 		cout << temperature << "\t#wopt: " << wopt << "\t#configs: " << nconfigs << "\tMean: " << Mmean.x << " ± " << Mmean.y << "  ::suceptibility: " << sus.x << " ± " << sus.y << "\teMean: " << eMmean.x << " ± " << eMmean.y << "  ::specificHeat: " << specificHeat.x << " ± " << specificHeat.y << endl;
 		
-		
-		
-		fileout1 << grid << Jconst() << '\t' << temperature << '\t' << wopt << '\t' << nconfigs << '\t' << Mmean.x << '\t' << Mmean.y << '\t' << sus.x << '\t' << sus.y << '\t' << sus.x*Volume() << '\t' << sus.y*Volume() << '\t' << eMmean.x << '\t' << eMmean.y << '\t' << specificHeat.x*Volume() << '\t' << specificHeat.y*Volume() << endl;
-		
-		fileout.close();
+		fileout1 << grid << Jconst() << '\t' << temperature << '\t' << wopt << '\t' << nconfigs << '\t' << Mmean.x << '\t' << Mmean.y << '\t' << sus.x << '\t' << sus.y << '\t' << sus.x*Volume() << '\t' << sus.y*Volume() << '\t' << eMmean.x << '\t' << eMmean.y << '\t' << specificHeat.x*Volume() << '\t' << specificHeat.y*Volume() << << endl;
 		
 		delete lattice;
 		delete rng;
